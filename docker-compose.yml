@@ -1,0 +1,27 @@
+version: '3'
+services:
+  db:
+    image: postgres:13
+    container_name: postgresql_db
+    environment:
+      POSTGRES_USER: tottee-user
+      POSTGRES_PASSWORD: tottee-password
+      POSTGRES_DB: develop
+    volumes:
+      - pg_test_db_data:/var/lib/postgresql/db_data
+    ports:
+      - '5432:5432'
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tottee-user -d develop']
+      interval: 10s
+      timeout: 30s
+      retries: 5
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pg_test_db_data:
