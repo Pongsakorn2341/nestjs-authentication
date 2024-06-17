@@ -18,6 +18,8 @@ async function bootstrap() {
     }),
   });
 
+  const port = process.env.PORT ?? 3456;
+
   const httpAdapter = app.get(HttpAdapterHost);
   app.setGlobalPrefix(prefix);
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
@@ -33,7 +35,6 @@ async function bootstrap() {
 
   const baseEndPoint = process.env.BASE_ENDPOINT;
   const logger = new Logger(AppModule.name);
-
   const config = new DocumentBuilder()
     .setTitle('Authentication')
     .setDescription('Startup jwt based authentication in Nest.js')
@@ -49,7 +50,7 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(3000);
+  await app.listen(port);
 
   logger.verbose(
     `Api Documents is started at : [${baseEndPoint}/${swaggerDocument}]`,
