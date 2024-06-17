@@ -8,20 +8,24 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
-
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
-    this.logger.debug(`----------------------------------`);
+    this.logger.debug('----------------------------------');
 
     const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
-    const rest = {
+    const response = ctx.getResponse();
+    const request = ctx.getRequest<Request>();
+
+    const defaultResponse = {
       cause: null,
-      message: (exception as { name: string })?.name || 'Unknwon Error',
+      message: (exception as { name: string })?.name || 'Unknown Error',
     };
 
     let httpStatus =
@@ -29,77 +33,75 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    if (httpStatus == HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (httpStatus === HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(exception);
     }
 
     if (exception instanceof UnauthorizedException) {
+      this.logger.warn(`UnAuthorized Exception`);
       httpStatus = HttpStatus.UNAUTHORIZED;
-      const response = exception.getResponse() as any;
-      if (typeof response === 'object') {
-        rest.cause = exception.name;
-        rest.message = response.message;
-      } else {
-        rest.message = response;
-      }
+      this.handleUnauthorizedException(exception, defaultResponse);
     } else if (exception instanceof HttpException) {
-      const request = ctx.getRequest<Request>();
-      const response = exception.getResponse() as {
-        message: string;
-        error: string;
-        statusCode: number;
-      };
-      if (response.statusCode !== 404) {
-        this.logger.error(
-          `${request.method}: ${request.url} - ${response.statusCode}`,
-          null,
-          'AllExceptionsFilter',
-        );
-        this.logger.error(
-          exception.message,
-          exception.stack,
-          'AllExceptionsFilter',
-        );
-      }
-      const exceptionResponse = exception.getResponse();
-      if (
-        exceptionResponse instanceof Object &&
-        'message' in exceptionResponse &&
-        Array.isArray(exceptionResponse.message)
-      ) {
-        rest.cause = exceptionResponse.message.join(',');
-        rest.message = 'Bad Request';
-      } else {
-        rest.cause =
-          typeof (exception as any).response == 'string'
-            ? (exception as any).response
-            : (exception as any).response.message;
-        rest.message = (exception as any).name;
-        httpStatus = (exception as any).status as number | 0;
-      }
-      this.logger.debug(`${request.method}: ${request.url}`);
-    } else {
-      //   const result = handleError(exception);
-      //   rest.cause = result.cause ? result.cause : exception;
-      //   rest.message = result.message ? result.message : (exception as string);
-      //   httpStatus = result.code;
-    }
-    if (httpStatus != 404) {
-      this.logger.debug(exception);
-      this.logger.debug(`Cause : ${rest.cause}`);
-      this.logger.debug(`[${httpStatus}] Message : ${rest.cause}`);
+      this.logger.warn(`Http Exception`);
+      this.handleHttpException(exception, request, defaultResponse);
+      httpStatus = (exception as any).status || httpStatus;
     }
 
-    if (typeof rest.cause == 'string' && rest.cause.includes('this.prisma.')) {
-      rest.cause = 'Prisma Error';
+    if (httpStatus !== HttpStatus.NOT_FOUND) {
+      this.logger.debug(exception);
+      this.logger.debug(`Cause: ${defaultResponse.cause}`);
+      this.logger.debug(`[${httpStatus}] Message: ${defaultResponse.cause}`);
+    }
+
+    if (
+      typeof defaultResponse.cause === 'string' &&
+      defaultResponse.cause.includes('this.prisma.')
+    ) {
+      defaultResponse.cause = 'Prisma Client Error';
     }
 
     const responseBody = {
       statusCode: httpStatus,
       timestamp: new Date().toISOString(),
-      path: httpAdapter.getRequestUrl(ctx.getRequest()),
+      path: httpAdapter.getRequestUrl(request),
+      ...defaultResponse,
     };
 
-    httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);
+    httpAdapter.reply(response, responseBody, httpStatus);
+  }
+
+  private handleUnauthorizedException(
+    exception: UnauthorizedException,
+    defaultResponse: any,
+  ) {
+    const response = exception.getResponse() as any;
+    if (typeof response === 'object') {
+      defaultResponse.cause = exception.name;
+      defaultResponse.message = response.message;
+    } else {
+      defaultResponse.message = response;
+    }
+  }
+
+  private handleHttpException(
+    exception: HttpException,
+    request: Request,
+    defaultResponse: any,
+  ) {
+    const response = exception.getResponse() as any;
+    if (
+      response instanceof Object &&
+      'message' in response &&
+      Array.isArray(response.message)
+    ) {
+      defaultResponse.cause = response.message.join(',');
+      defaultResponse.message = 'Bad Request';
+    } else {
+      defaultResponse.cause =
+        typeof response === 'string' ? response : response.message;
+      defaultResponse.message = exception.name;
+    }
+
+    this.logger.debug(`${request.method}: ${request.url}`);
   }
 }
