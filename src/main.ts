@@ -1,10 +1,14 @@
-import { Logger } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
 import { loggerInstance } from './common/config/winston.logger';
+import { AllExceptionsFilter } from './common/exception/all-exception.filter';
+const DEFAULT_VERSION = '1';
+const prefix = 'api';
+const swaggerDocument = `api-documents`;
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -13,11 +17,23 @@ async function bootstrap() {
       instance: loggerInstance,
     }),
   });
+
+  const httpAdapter = app.get(HttpAdapterHost);
+  app.setGlobalPrefix(prefix);
+  app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: DEFAULT_VERSION,
+  });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+    }),
+  );
+
   const baseEndPoint = process.env.BASE_ENDPOINT;
   const logger = new Logger(AppModule.name);
 
-  const swaggerDocument = `api-documents`;
-  const prefix = 'api';
   const config = new DocumentBuilder()
     .setTitle('Authentication')
     .setDescription('Startup jwt based authentication in Nest.js')
