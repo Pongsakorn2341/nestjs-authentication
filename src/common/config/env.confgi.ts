@@ -21,6 +21,6 @@ const envConfigObject = registerAs<IEnvConfig>('envConfig', (): IEnvConfig => {
     JWT_SECRET: process.env.JWT_SECRET,
   };
 });
-console.log('🚀 ENV CONFIGURATION', envConfigObject());
+// console.log('🚀 ENV CONFIGURATION', envConfigObject());
 
 export { envConfigObject };

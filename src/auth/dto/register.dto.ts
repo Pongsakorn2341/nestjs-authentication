@@ -23,9 +23,4 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsString()
   password: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  verify_token: string;
 }

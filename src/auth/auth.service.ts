@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
-import { AxiosRequestConfig } from 'axios';
 import * as bcrypt from 'bcryptjs';
 import * as moment from 'moment';
 import { EnvConfigProps } from 'src/common/config/env.confgi';
@@ -22,13 +21,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<EnvConfigProps>,
   ) {}
-  private readonly axiosConfig: AxiosRequestConfig = {
-    headers: {
-      'Content-Type': 'application/json',
-      accept: 'application/json',
-      // 'X-API-KEY': this.medusaApiKey,
-    },
-  };
 
   private readonly jwtSecret =
     this.configService.get<string>(`envConfig.JWT_SECRET`);
@@ -97,26 +89,19 @@ export class AuthService {
     }
 
     const hash = await bcrypt.hash(registerDto.password, 10);
-    const { userData } = await this.prismaService.$transaction(
-      async (prisma: PrismaService) => {
-        const userData = await prisma.user.create({
-          data: {
-            email: registerDto.email,
-            name: registerDto.name,
-            password: hash,
-          },
-          select: {
-            id: true,
-            is_active: true,
-            email: true,
-            name: true,
-          },
-        });
-        return {
-          userData,
-        };
+    const userData = await this.prismaService.user.create({
+      data: {
+        email: registerDto.email,
+        name: registerDto.name,
+        password: hash,
       },
-    );
+      select: {
+        id: true,
+        is_active: true,
+        email: true,
+        name: true,
+      },
+    });
 
     return { status: true, userData };
   }
