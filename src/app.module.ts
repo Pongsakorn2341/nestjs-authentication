@@ -3,10 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { envConfigObject } from './common/config/env.confgi';
+import { envConfigObject } from './common/config/env.config';
 import { JoiValidation } from './common/config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
-import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -23,8 +22,6 @@ import { UserModule } from './user/user.module';
     }),
     PrismaModule,
     AuthModule,
-    UserModule,
-    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
